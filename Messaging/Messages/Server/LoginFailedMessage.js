@@ -62,29 +62,29 @@ module.exports = class LoginFailedMessage {
     if (this.fingerprint) {
       try {
         const fp = JSON.parse(this.fingerprint);
-        if (fp.sha) messaging.config.fingerprintHash = fp.sha;
-        if (fp.version) {
-          const v = String(fp.version).split('.').map(Number);
-          if (v.length >= 3) {
-            messaging.config.major = v[0];
-            messaging.config.minor = v[1];
-            messaging.config.build = v[2];
+        if (fp && typeof fp === 'object') {
+          const version = typeof fp.version === 'string' ? fp.version : '';
+          const sha = typeof fp.sha === 'string' ? fp.sha : '';
+          const validVersion = /^\\d+\\.\\d+\\.\\d+$/.test(version);
+          const validSha = /^[a-f0-9]{40}$/i.test(sha);
+          if (validVersion && validSha) {
+            const [major, minor, build] = version.split('.').map(Number);
+            const clientVersion = [messaging.config.major, messaging.config.minor, messaging.config.build].join('.');
+            globalThis.Debugger?.warn?.(
+              `Server content fingerprint: version=${version} sha=${sha}; configured content version=${clientVersion}`,
+            );
+            if (clientVersion !== version || messaging.config.fingerprintHash !== sha)
+              globalThis.Debugger?.warn?.('Content fingerprint differs; run the verified updater before retrying.');
+          } else {
+            globalThis.Debugger?.warn?.('LoginFailed fingerprint has invalid version or SHA.');
           }
         }
-        messaging.saveConfig();
-        globalThis.Debugger?.info?.('Saved fingerprint/version from server response.');
-        const server = `${v[0]}.${v[1]}.${v[2]}`;
-        const client = `${messaging.config.major}.${messaging.config.minor}.${messaging.config.build}`;
-        if (server !== client) {
-          globalThis.Debugger?.warn?.(
-            `LoginFailed version mismatch: server expects ${server}, this client sends ${client}. `
-            + 'Update the client before re-cutting the license block.',
-          );
-        }
-      } catch {
-        globalThis.Debugger?.warn?.('Fingerprint field was present but was not JSON.');
+      } catch (error) {
+        globalThis.Debugger?.warn?.(`LoginFailed fingerprint JSON could not be parsed: ${error.message}`);
       }
     }
+    // A LoginFailed packet is not proof that a new fingerprint works.
+    // Never persist server-supplied fields before successful login verification.
     messaging.close('LoginFailed');
   }
 };
