@@ -77,6 +77,8 @@ class Cursor {
   }
 }
 
+const MAX_FINGERPRINT_BYTES = 16 * 1024 * 1024;
+
 function parseProbePayload(payload) {
   const r = new Cursor(payload),
     status = r.u32(),
@@ -90,10 +92,12 @@ function parseProbePayload(payload) {
   if (fp === '' || fp === null) {
     r.skip(5);
     const compressedLength = r.u32();
+    if (compressedLength > MAX_FINGERPRINT_BYTES) throw new Error('compressed fingerprint exceeds size limit');
     if (r.rem() < 4) throw new Error('missing decompressed length');
-    const little = r.bytes(4).readUInt32LE(0),
-      compressed = r.bytes(compressedLength),
-      decompressed = zlib.inflateSync(compressed);
+    const little = r.bytes(4).readUInt32LE(0);
+    if (little > MAX_FINGERPRINT_BYTES) throw new Error('decompressed fingerprint exceeds size limit');
+    const compressed = r.bytes(compressedLength),
+      decompressed = zlib.inflateSync(compressed, { maxOutputLength: MAX_FINGERPRINT_BYTES });
     if (little && decompressed.length !== little)
       result.decompressedLengthWarning = { expected: little, actual: decompressed.length };
     fp = decompressed.toString('utf8');
