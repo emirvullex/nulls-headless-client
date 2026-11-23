@@ -31,10 +31,10 @@ class Messaging {
     if (this.dump) fs.mkdirSync(path.join(this.root, 'PacketsDumps'), { recursive: true });
   }
   saveAccount() {
-    fs.writeFileSync(this.accountPath, JSON.stringify(this.account, null, 2));
+    require('../lib/Store').write(this.accountPath, this.account);
   }
   saveConfig() {
-    fs.writeFileSync(path.join(this.root, 'config.json'), JSON.stringify(this.config, null, 2));
+    require('../lib/Store').write(path.join(this.root, 'config.json'), this.config);
   }
   close(reason = 'done') {
     if (this.closing) return;
