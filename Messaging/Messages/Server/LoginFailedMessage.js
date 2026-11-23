@@ -65,10 +65,9 @@ module.exports = class LoginFailedMessage {
         if (fp && typeof fp === 'object') {
           const version = typeof fp.version === 'string' ? fp.version : '';
           const sha = typeof fp.sha === 'string' ? fp.sha : '';
-          const validVersion = /^\\d+\\.\\d+\\.\\d+$/.test(version);
+          const validVersion = /^[0-9]+[.][0-9]+[.][0-9]+$/.test(version);
           const validSha = /^[a-f0-9]{40}$/i.test(sha);
           if (validVersion && validSha) {
-            const [major, minor, build] = version.split('.').map(Number);
             const clientVersion = [messaging.config.major, messaging.config.minor, messaging.config.build].join('.');
             globalThis.Debugger?.warn?.(
               `Server content fingerprint: version=${version} sha=${sha}; configured content version=${clientVersion}`,
