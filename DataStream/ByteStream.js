@@ -117,7 +117,8 @@ module.exports = class ByteStream {
   }
   readBytes(size) {
     this.booleanBit = 0;
-    if (size < 0 || size > this.remaining()) throw new Error(`Invalid byte length ${size}`);
+    if (!Number.isSafeInteger(size) || size < 0 || size > this.remaining())
+      throw new Error(`Invalid byte length ${size}`);
     const out = this.payload.slice(this.offset, this.offset + size);
     this.offset += size;
     return out;
