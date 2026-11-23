@@ -6,7 +6,7 @@ const Hello = require('../Messaging/Messages/Client/ModernClientHelloMessage');
 const Login = require('../Messaging/Messages/Client/LoginMessage');
 const base = require('../config.json');
 const root = path.resolve(__dirname, '..');
-const license = fs.readFileSync(path.join(root, 'client-license.bin'));
+const license = fs.readFileSync(path.join(root, base.clientLicensePath || 'client-license.bin'));
 const config = () => require('../utils/NullsLicense').apply({ ...base }, root);
 function readHello(c) {
   const h = new Hello(c);
@@ -19,7 +19,7 @@ test('Nulls Hello includes the APK version, authentic license and current metada
   const s = readHello(config());
   assert.deepEqual(
     Array.from({ length: 5 }, () => s.readInt()),
-    [2, 59, 69, 0, 252],
+    [base.protocolVersion, base.keyVersion, base.clientMajor, base.clientMinor, base.clientBuild],
   );
   assert.equal(s.readOptionalString(), base.fingerprintHash);
   assert.equal(s.readInt(), 2);
@@ -40,7 +40,7 @@ test('Downloadable content updates preserve the Hello APK tuple', () => {
   const s = readHello({ ...config(), major: 70, minor: 999, build: 1 });
   s.readInt();
   s.readInt();
-  assert.deepEqual([s.readInt(), s.readInt(), s.readInt()], [69, 0, 252]);
+  assert.deepEqual([s.readInt(), s.readInt(), s.readInt()], [base.clientMajor, base.clientMinor, base.clientBuild]);
 });
 test('Nulls Login preserves the saved token and includes the APK size seed', () => {
   const c = config(),
@@ -50,7 +50,7 @@ test('Nulls Login preserves the saved token and includes the APK size seed', () 
   s.set(s.getBytes());
   s.readLong();
   assert.equal(s.readOptionalString(), 'test-token');
-  assert.deepEqual([s.readInt(), s.readInt(), s.readInt()], [69, 1, 252]);
+  assert.deepEqual([s.readInt(), s.readInt(), s.readInt()], [base.clientMajor, 1, base.clientBuild]);
   assert.equal(s.readOptionalString(), c.fingerprintHash);
   s.readOptionalString();
   s.readVInt();
@@ -63,8 +63,8 @@ test('Nulls Login preserves the saved token and includes the APK size seed', () 
   s.readBoolean();
   s.readOptionalString();
   assert.equal(s.readInt(), 1448);
-  assert.equal(s.readVInt(), (1267993744 ^ 4330295) | 0);
-  assert.equal(s.readOptionalString(), '69.252');
+  assert.equal(s.readVInt(), (base.apkSize ^ 4330295) | 0);
+  assert.equal(s.readOptionalString(), base.appBinaryVersion);
 });
 test('Login frame uses version 10 and Hello uses version 0', () => {
   const Messaging = require('../Messaging/Messaging'),
