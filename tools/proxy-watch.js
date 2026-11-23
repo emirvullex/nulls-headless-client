@@ -8,7 +8,8 @@ const Sources = require('../lib/ProxySources');
 const ROOT = path.resolve(__dirname, '..'),
   PID = path.join(ROOT, 'proxy-watch.pid'),
   LOG = path.join(ROOT, 'proxy-watch.log'),
-  STATE = path.join(ROOT, 'proxy-watch-status.json');
+  STATE = path.join(ROOT, 'proxy-watch-status.json'),
+  REFRESH = path.join(ROOT, '.runtime', 'proxy-watch-refresh.flag');
 const args = process.argv.slice(2),
   command = args[0] || 'status';
 function option(flag, fallback) {
@@ -42,7 +43,12 @@ if (command === 'status') {
 }
 if (command === 'stop' || command === 'refresh') {
   const n = owned();
-  if (n) process.kill(n, command === 'stop' ? 'SIGTERM' : 'SIGUSR2');
+  if (n) {
+    if (command === 'refresh' && process.platform === 'win32') {
+      fs.mkdirSync(path.dirname(REFRESH), { recursive: true });
+      fs.writeFileSync(REFRESH, String(Date.now()), { mode: 0o600 });
+    } else process.kill(n, command === 'stop' ? 'SIGTERM' : 'SIGUSR2');
+  }
   console.log(n ? 'Request sent' : 'Proxy watcher is not running');
   return;
 }
@@ -283,6 +289,7 @@ function stop() {
   stopping = true;
   clearTimeout(timer);
   watcher.close();
+  clearInterval(refreshPoll);
   fetchController?.abort();
   for (const s of active) s.destroy(new Error('Watcher stopped'));
   status();
@@ -290,5 +297,16 @@ function stop() {
 }
 process.once('SIGTERM', stop);
 process.once('SIGINT', stop);
-process.on('SIGUSR2', requestRefresh);
+if (process.platform !== 'win32') process.on('SIGUSR2', requestRefresh);
+// SIGUSR2 is unsupported on Windows. The control command requests refresh via a file.
+const refreshPoll = process.platform === 'win32' ? setInterval(() => {
+  if (!fs.existsSync(REFRESH)) return;
+  try {
+    fs.unlinkSync(REFRESH);
+    requestRefresh();
+  } catch (error) {
+    console.error('Could not process refresh request:', error.message);
+  }
+}, 1000) : null;
+refreshPoll?.unref?.();
 cycle();
