@@ -20,16 +20,15 @@ function owned() {
   const n = Number(fs.readFileSync(PID));
   try {
     process.kill(n, 0);
-    if (!fs.readFileSync('/proc/' + n + '/cmdline').includes(Buffer.from(__filename))) return null;
+    const proc = `/proc/${n}/cmdline`;
+    if (fs.existsSync(proc) && !fs.readFileSync(proc).includes(Buffer.from(__filename))) return null;
     return n;
   } catch {
     return null;
   }
 }
 function atomic(file, value) {
-  const temp = file + '.tmp-' + process.pid;
-  fs.writeFileSync(temp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
-  fs.renameSync(temp, file);
+  require('../lib/Store').write(file, value);
 }
 if (command === 'status') {
   console.log(
