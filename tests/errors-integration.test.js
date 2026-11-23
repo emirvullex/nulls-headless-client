@@ -143,7 +143,7 @@ test('CLI: create-account на существующем аккаунте — STA
     assert.equal(body.error.code, 'STATE_ERROR');
     assert.equal(body.error.kind, 'state');
     assert.equal(body.error.retryable, false);
-    assert.match(body.error.message, /already exists|аккаунт/i);
+    assert.match(body.error.message, /already exists|аккаунт|hesap zaten var/i);
   } finally {
     clean(root);
   }
