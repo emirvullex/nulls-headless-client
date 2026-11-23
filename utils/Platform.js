@@ -38,7 +38,7 @@ function hasPM() {
 // Возвращает имя команды Python, которая действительно отвечает на --version, или null.
 function pythonCommand() {
   if (python !== undefined) return python;
-  const candidates = isWindows() ? ['python', 'python3'] : ['python3', 'python'];
+  const candidates = isWindows() ? ['python', 'python3', 'py'] : ['python3', 'python'];
   for (const command of candidates) {
     try {
       const output = childProcess.execFileSync(command, ['--version'], {
