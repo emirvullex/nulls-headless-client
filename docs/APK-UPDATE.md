@@ -152,6 +152,28 @@ config.loginClientSeed = (config.apkSize ^ 4330295) | 0;
 | `installedOlder: true` | Установленный APK старее текущего конфига — обновление не применяется, это защита от отката. |
 | `config.json changed during verification` | Конфиг правили во время проверки; повторить запуск. |
 
+## Windows 10/11: обнаружение Python и aapt2
+
+- На Windows updater ищет `python`, `python3`, затем launcher `py`.
+- `tools/extract_update_apk.py` ищет `aapt2` в `PATH`, а также в
+  `build-tools/<version>` для `ANDROID_HOME`, `ANDROID_SDK_ROOT` и
+  `%LOCALAPPDATA%\Android\Sdk`. При необходимости задайте `AAPT2_PATH` —
+  полный путь к `aapt2.exe`.
+- На ПК указывайте APK явно:
+
+  `node tools/update.js --check --apk "C:\path\to\base.apk"`
+
+  Проверка перед записью требует **существующего** аккаунта:
+
+  `node tools/update.js --apk "C:\path\to\base.apk" --account accounts\bot-1.json`
+
+**Не путайте версии.** Для APK `70.877` ClientHello обычно использует
+`clientMajor=70`, `clientMinor=0`, `clientBuild=877`. Версия *контента*
+при этом может быть иной: manifest `70.877.22` задаёт `major=70`,
+`minor=877`, `build=22`. `fingerprintHash` — поле `sha` из server fingerprint,
+а **не SHA-1 APK**. Код `20103/7` может включать сжатый манифест, но
+сам по себе не доказывает точную причину отказа.
+
 ## NOTICE
 
 Обновление работает с материалами игры (APK, `libg.so`, блок лицензии,
