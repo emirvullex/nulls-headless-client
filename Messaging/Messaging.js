@@ -81,9 +81,14 @@ class Messaging {
       payload = this.crypto.decrypt(type, encrypted);
     } catch (e) {
       Debugger.error(`decrypt ${type}: ${e.message}`);
+      this.close('packet decryption error');
       return;
     }
-    if (payload == null) return Debugger.error(`Failed to decrypt packet ${type}`);
+    if (payload == null) {
+      Debugger.error(`Failed to decrypt packet ${type}`);
+      this.close('packet authentication failed');
+      return;
+    }
     this.onPacket?.(type, payload);
     if (type !== 20108 && type !== 49001)
       Debugger.info(`recv type=${type} len=${length} ver=${version} decrypted=${payload.length}`);
