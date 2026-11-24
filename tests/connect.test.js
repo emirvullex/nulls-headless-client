@@ -134,7 +134,8 @@ test('confirmPin persists the token with 0600 and masks the e-mail in logs', asy
   assert.equal(stored.token, 'bearer-secret');
   assert.equal(stored.email, 'alice@example.com');
   assert.equal(typeof stored.at, 'string');
-  assert.equal(fs.statSync(stateFile).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(stateFile).mode & 0o777, 0o600);
+  // Windows access controls are ACL-based, not represented by POSIX stat.mode.
 
   assert.equal(Connect.maskEmail('alice@example.com'), 'a***@example.com');
   const text = logs.join('\n');

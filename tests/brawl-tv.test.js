@@ -137,7 +137,9 @@ test('TV decoding runs in the packet handler and leaves connection establishment
   let invoked = false;
   try {
     fs.copyFileSync(path.join(__dirname, '../config.json'), path.join(root, 'config.json'));
-    fs.copyFileSync(path.join(__dirname, '../client-license.bin'), path.join(root, 'client-license.bin'));
+    const sourceConfig = JSON.parse(fs.readFileSync(path.join(root, 'config.json'), 'utf8'));
+    const licenseName = sourceConfig.clientLicensePath || 'client-license.bin';
+    fs.copyFileSync(path.join(__dirname, '..', licenseName), path.join(root, licenseName));
     Proxy.connectSocket = () => {
       invoked = true;
     };

@@ -31,10 +31,10 @@ class Messaging {
     if (this.dump) fs.mkdirSync(path.join(this.root, 'PacketsDumps'), { recursive: true });
   }
   saveAccount() {
-    fs.writeFileSync(this.accountPath, JSON.stringify(this.account, null, 2));
+    require('../lib/Store').write(this.accountPath, this.account);
   }
   saveConfig() {
-    fs.writeFileSync(path.join(this.root, 'config.json'), JSON.stringify(this.config, null, 2));
+    require('../lib/Store').write(path.join(this.root, 'config.json'), this.config);
   }
   close(reason = 'done') {
     if (this.closing) return;
@@ -81,9 +81,14 @@ class Messaging {
       payload = this.crypto.decrypt(type, encrypted);
     } catch (e) {
       Debugger.error(`decrypt ${type}: ${e.message}`);
+      this.close('packet decryption error');
       return;
     }
-    if (payload == null) return Debugger.error(`Failed to decrypt packet ${type}`);
+    if (payload == null) {
+      Debugger.error(`Failed to decrypt packet ${type}`);
+      this.close('packet authentication failed');
+      return;
+    }
     this.onPacket?.(type, payload);
     if (type !== 20108 && type !== 49001)
       Debugger.info(`recv type=${type} len=${length} ver=${version} decrypted=${payload.length}`);

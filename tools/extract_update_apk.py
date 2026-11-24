@@ -1,7 +1,39 @@
 """Read installed APK metadata/assets; never modify the APK."""
-import json, re, struct, subprocess, sys
+import json, os, re, shutil, struct, subprocess, sys
 from pathlib import Path
 from zipfile import ZipFile
+
+
+def find_aapt2():
+    """Find aapt2 in PATH or installed Android SDK build-tools (including Windows)."""
+    override = os.environ.get('AAPT2_PATH')
+    if override:
+        if Path(override).is_file():
+            return override
+        raise FileNotFoundError('AAPT2_PATH does not point to a file: ' + override)
+    found = shutil.which('aapt2')
+    if found:
+        return found
+    roots = [os.environ.get('ANDROID_HOME'), os.environ.get('ANDROID_SDK_ROOT')]
+    if os.name == 'nt':
+        local = os.environ.get('LOCALAPPDATA')
+        if local:
+            roots.append(str(Path(local) / 'Android' / 'Sdk'))
+    else:
+        roots += [str(Path.home() / 'Android' / 'Sdk'), str(Path.home() / 'Library' / 'Android' / 'sdk')]
+    binary = 'aapt2.exe' if os.name == 'nt' else 'aapt2'
+    candidates = []
+    for root in filter(None, roots):
+        build_tools = Path(root) / 'build-tools'
+        if build_tools.is_dir():
+            candidates += list(build_tools.glob('*/' + binary))
+    if candidates:
+        def version_key(p):
+            return tuple(map(int, re.findall(r'\d+', p.parent.name)))
+        return str(max(candidates, key=version_key))
+    raise FileNotFoundError(
+        'aapt2 not found. Install Android SDK Build-Tools or set AAPT2_PATH to aapt2.exe'
+    )
 
 def license_block(apk):
     with Path(apk).open('rb') as f:
@@ -27,7 +59,7 @@ def license_block(apk):
     raise ValueError('Nulls license entry 0x544e3713 missing')
 
 def extract(base, libs, out, expected):
-    badging=subprocess.check_output(['aapt2','dump','badging',base],text=True,timeout=20)
+    badging=subprocess.check_output([find_aapt2(),'dump','badging',base],text=True,timeout=20)
     m=re.search(r"package: name='([^']+)'[^\n]*versionName='([^']+)'",badging)
     if not m or m[1]!=expected: raise ValueError('APK package does not match this client')
     if not re.fullmatch(r'\d+\.\d+',m[2]): raise ValueError('Unsupported APK versionName: '+m[2])

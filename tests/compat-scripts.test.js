@@ -69,7 +69,9 @@ test('lib/Store читает и пишет JSON атомарно', () => {
   assert.deepEqual(Store.read(file), { hi: 1, lo: 2 });
   assert.equal(Store.read(path.join(dir, 'missing.json'), { fallback: true }).fallback, true);
   const mode = fs.statSync(file).mode & 0o777;
-  assert.equal(mode, 0o600, 'файл состояния должен быть доступен только владельцу');
+  if (process.platform !== 'win32')
+    assert.equal(mode, 0o600, 'файл состояния должен быть доступен только владельцу');
+  // Windows permissions are governed by ACLs; stat.mode cannot validate them.
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

@@ -216,7 +216,7 @@ async function runUpdate(root, opts = {}, deps = {}) {
     const changes = fields
       .filter((k) => JSON.stringify(current[k]) !== JSON.stringify(candidate[k]))
       .map((k) => ({ field: k, before: current[k] ?? null, after: candidate[k] ?? null }));
-    const full = (!opts.check && changes.length > 0) || opts.verifyLogin;
+    const full = !!opts.verifyLogin;
     let account = null;
     if (full) {
       const accountFile = path.resolve(root, opts.account || 'account.json');
@@ -241,9 +241,10 @@ async function runUpdate(root, opts = {}, deps = {}) {
       installedAPKOlder: apk?.installedOlder ?? false,
       changes,
       verification,
+      verificationLevel: full ? 'login-and-home' : 'server-hello-only',
     };
     if (changes.length && !opts.check) {
-      candidate.lastAutomaticUpdate = { at: new Date().toISOString(), verification };
+      candidate.lastAutomaticUpdate = { at: new Date().toISOString(), verification, verificationLevel: report.verificationLevel };
       report.backup = commit(root, before, candidate);
       preserveStage = String(candidate.clientLicensePath || '').startsWith(path.relative(root, stage) + path.sep);
     }

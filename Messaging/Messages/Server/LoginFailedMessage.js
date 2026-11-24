@@ -1,8 +1,10 @@
 const ByteStream = require('../../../DataStream/ByteStream');
+const { parseProbePayload } = require('../../../utils/FingerprintProbe');
 
 // Код ошибки входа -> что с этим делать. Сервер отдаёт только число, поэтому
 // без подсказки пользователь видит "login failed 8" и не понимает, что делать.
 const HINTS = {
+  7: 'The server returned content update information; compare the fingerprint and run node tools/update.js --check before changing config.',
   8: 'the client build or its license block is stale: client-license.bin is bound to one '
    + 'APK build and its size. Update to the latest release and re-cut the block '
    + '(docs/APK-UPDATE.md).',
@@ -59,32 +61,40 @@ module.exports = class LoginFailedMessage {
       );
     }
 
-    if (this.fingerprint) {
+    let fingerprint = this.fingerprint;
+    // The server can append a zlib-compressed content manifest instead of inline JSON.
+    if (!fingerprint && this.errorCode === 7) {
       try {
-        const fp = JSON.parse(this.fingerprint);
-        if (fp.sha) messaging.config.fingerprintHash = fp.sha;
-        if (fp.version) {
-          const v = String(fp.version).split('.').map(Number);
-          if (v.length >= 3) {
-            messaging.config.major = v[0];
-            messaging.config.minor = v[1];
-            messaging.config.build = v[2];
-          }
-        }
-        messaging.saveConfig();
-        globalThis.Debugger?.info?.('Saved fingerprint/version from server response.');
-        const server = `${v[0]}.${v[1]}.${v[2]}`;
-        const client = `${messaging.config.major}.${messaging.config.minor}.${messaging.config.build}`;
-        if (server !== client) {
-          globalThis.Debugger?.warn?.(
-            `LoginFailed version mismatch: server expects ${server}, this client sends ${client}. `
-            + 'Update the client before re-cutting the license block.',
-          );
-        }
-      } catch {
-        globalThis.Debugger?.warn?.('Fingerprint field was present but was not JSON.');
+        const probe = parseProbePayload(this.ByteStream.payload);
+        if (probe.fingerprint) fingerprint = JSON.stringify({
+          version: probe.fingerprint.version,
+          sha: probe.fingerprint.sha,
+        });
+      } catch (error) {
+        globalThis.Debugger?.warn?.(`Could not decode server content fingerprint: ${error.message}`);
       }
     }
+    if (fingerprint) {
+      try {
+        const fp = JSON.parse(fingerprint);
+        const version = typeof fp?.version === 'string' ? fp.version : '';
+        const sha = typeof fp?.sha === 'string' ? fp.sha : '';
+        if (/^[0-9]+[.][0-9]+[.][0-9]+$/.test(version) && /^[a-f0-9]{40}$/i.test(sha)) {
+          const clientVersion = [messaging.config.major, messaging.config.minor, messaging.config.build].join('.');
+          globalThis.Debugger?.warn?.(
+            `Server content fingerprint: version=${version} sha=${sha}; configured content version=${clientVersion}`,
+          );
+          if (clientVersion !== version || messaging.config.fingerprintHash !== sha)
+            globalThis.Debugger?.warn?.('Content fingerprint differs; run the verified updater before retrying.');
+        } else {
+          globalThis.Debugger?.warn?.('LoginFailed fingerprint has invalid version or SHA.');
+        }
+      } catch (error) {
+        globalThis.Debugger?.warn?.(`LoginFailed fingerprint JSON could not be parsed: ${error.message}`);
+      }
+    }
+    // Rejecting a login does not verify a new fingerprint. Never persist
+    // server-provided values before LoginOk and HomeData are confirmed.
     messaging.close('LoginFailed');
   }
 };

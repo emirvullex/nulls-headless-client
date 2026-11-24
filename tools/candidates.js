@@ -12,7 +12,8 @@ function owned() {
   try {
     if (!Number.isInteger(pid) || pid < 1) return null;
     process.kill(pid, 0);
-    return fs.readFileSync(`/proc/${pid}/cmdline`).includes(Buffer.from(__filename)) ? pid : null;
+    const proc = `/proc/${pid}/cmdline`;
+    return !fs.existsSync(proc) || fs.readFileSync(proc).includes(Buffer.from(__filename)) ? pid : null;
   } catch {
     return null;
   }
